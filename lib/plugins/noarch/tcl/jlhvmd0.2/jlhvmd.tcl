@@ -34,12 +34,18 @@
 # ### Changed
 # - Suppose to have substrate terminated at z = 0
 # - Package structure copied from Axel Kohlmeyer's topotools
+#
 # ## [0.2.1] 2019-05-19
 # ### Changed
 # - jlh user interface
+#
+# ## [0.2.2] 2019-05-20
+# ### Changed
+# - random position changed from small volume between indenter and substrate to
+#   whole bounding box except lower substrate part
 
 namespace eval ::JlhVmd:: {
-    variable version 0.2
+    variable version 0.2.2
     # utility command exports. the other commands are
     # best used through the "topo" frontend command.
     # namespace export system_data_file indenter_data_file indenter_pdb_file
@@ -941,6 +947,7 @@ proc ::JlhVmd::move_nonsolvent_overlap {} {
   variable substrate_resname
 
   variable overlap_distance
+  variable bounding_box
 
   # minmax selection: Returns two vectors, the first containing the minimum
   # x, y, and z coordinates of all atoms in selection, and the second
@@ -955,15 +962,34 @@ proc ::JlhVmd::move_nonsolvent_overlap {} {
     [ format "%8.4f %8.4f %8.4f" {*}[ lindex $substrate_extents 0 ] ] \
     [ format "%8.4f %8.4f %8.4f" {*}[ lindex $substrate_extents 1 ] ] ]
 
+  # before 2019/05/20:
   # determine allowed extents of a new random position for overlapping
   # non-solvent residues. Here box between substrate surface and indenter
   # apex, laterally bounded by indenter extents
   # limits [ [ min_x, min_y, min_z ], [max_x, max_y, max_z] ]
-  set position_limits [ list  \
-    [ lreplace [ lindex $indenter_extents 0 ] 2 2 [ \
-      expr [lindex $substrate_extents 1 2] + $overlap_distance ] ] \
-    [ lreplace [ lindex $indenter_extents 1 ] 2 2 [ \
-      expr [lindex $indenter_extents 0 2 ] - $overlap_distance ] ] ]
+  # set position_limits [ list  \
+  #   [ lreplace [ lindex $indenter_extents 0 ] 2 2 [ \
+  #     expr [lindex $substrate_extents 1 2] + $overlap_distance ] ] \
+  #   [ lreplace [ lindex $indenter_extents 1 ] 2 2 [ \
+  #     expr [lindex $indenter_extents 0 2 ] - $overlap_distance ] ] ]
+
+  # since 2019/05/20: 
+  # determine allowed extents of a new random position for overlapping
+  # non-solvent residues. Here system's the substrate's upper coordinate a
+  # and otherwise the lateral bounding box coordinates are used:
+  # limits [ [ min_x, min_y, min_z ], [max_x, max_y, max_z] ]
+  set position_limits [ list \
+    [ list \
+      [ expr [ lindex $bounding_box 0 0 ] + $overlap_distance ] \
+      [ expr [ lindex $bounding_box 0 1 ] + $overlap_distance ] \
+      [ expr [ lindex $substrate_extents 1 2 ] + $overlap_distance ] \
+    ] [ list \
+      [ expr [ lindex $bounding_box 1 0 ] - $overlap_distance ] \
+      [ expr [ lindex $bounding_box 1 1 ] - $overlap_distance ] \
+      [ expr [ lindex $bounding_box 1 2 ] - $overlap_distance ] \
+    ] \
+  ]
+
   vmdcon -info [ format "random position limits: %26s; %26s" \
     [ format "%8.4f %8.4f %8.4f" {*}[ lindex $position_limits 0 ] ] \
     [ format "%8.4f %8.4f %8.4f" {*}[ lindex $position_limits 1 ] ] ]
@@ -1023,10 +1049,10 @@ proc ::JlhVmd::move_nonsolvent_overlap {} {
       vmdcon -info [format "%-30.30s" "    #atoms in overlapping $surfactant_resname:"] \
         [format "%12d" [$cur_overlapping_surfactant num]]
 
-        set cur_overlapping_substrate [atomselect $combined_id \
-          "resname $substrate_resname and ([$cur_overlapping text])"]
-        vmdcon -info [format "%-30.30s" "    #atoms in overlapping $substrate_resname:"] \
-          [format "%12d" [$cur_overlapping_substrate num]]
+      set cur_overlapping_substrate [atomselect $combined_id \
+        "resname $substrate_resname and ([$cur_overlapping text])"]
+      vmdcon -info [format "%-30.30s" "    #atoms in overlapping $substrate_resname:"] \
+        [format "%12d" [$cur_overlapping_substrate num]]
 
       set cur_overlapping_solvent [atomselect $combined_id \
         "resname $solvent_resname and ([$cur_overlapping text])"]
