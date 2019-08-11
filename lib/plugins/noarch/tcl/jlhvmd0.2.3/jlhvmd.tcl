@@ -51,7 +51,7 @@
 #   using the actual number of types.
 
 namespace eval ::JlhVmd:: {
-    variable version 0.2.2
+    variable version 0.2.3
     # utility command exports. the other commands are
     # best used through the "topo" frontend command.
     # namespace export system_data_file indenter_data_file indenter_pdb_file
