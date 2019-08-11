@@ -2,7 +2,7 @@
 # JlhVmd, a VMD package to manipulate interfacial systems or other
 # topology related properties in VMD with the help of TopoTools and PbcTools
 #
-# Copyright (c) 2018
+# Copyright (c) 2018,2019
 #               by Johannes Hörmann <johannes.hoermann@imtek.uni-freiburg.de>
 #
 # $Id: jlhvmd.tcl,v 0.2 2019/05/16 $
@@ -43,6 +43,12 @@
 # ### Changed
 # - random position changed from small volume between indenter and substrate to
 #   whole bounding box except lower substrate part
+#
+# ## [0.2.3] 2019-08-10
+# ### Changed
+# - number of digits to fill in with type names now determined by counting
+#   characters of largest type name after integer sorting instead of
+#   using the actual number of types.
 
 namespace eval ::JlhVmd:: {
     variable version 0.2.2
@@ -509,7 +515,7 @@ proc ::JlhVmd::make_types_ascii_sortable {} {
   variable H2O_O_type
 
   set num_digits [
-    expr int( ceil( log( [topo numatomtypes] + 1.0 ) / log (10.0) ) ) ]
+    string length [ lindex [ lsort -integer [ topo atomtypenames ] ] end ] ]
 
   vmdcon -info "Prepending zeros to fill ${num_digits} digits to types."
 
@@ -973,7 +979,7 @@ proc ::JlhVmd::move_nonsolvent_overlap {} {
   #   [ lreplace [ lindex $indenter_extents 1 ] 2 2 [ \
   #     expr [lindex $indenter_extents 0 2 ] - $overlap_distance ] ] ]
 
-  # since 2019/05/20: 
+  # since 2019/05/20:
   # determine allowed extents of a new random position for overlapping
   # non-solvent residues. Here system's the substrate's upper coordinate a
   # and otherwise the lateral bounding box coordinates are used:
@@ -1473,8 +1479,10 @@ proc ::TopoTools::make_bond_types_ascii_sortable {sel} {
 
   set newbonds {}
 
+  # sort type names as inetgers, select last element (largest) and
+  # determine its field width:
   set num_digits [
-    expr int( ceil( log( [bondinfo numbondtypes $sel] + 1.0 ) / log (10.0) ) ) ]
+    string length [ lindex [ lsort -integer [ topo bondtypenames ] ] end ] ]
 
   vmdcon -info "Prepending zeros to bond types filling ${num_digits} digits."
 
@@ -1490,8 +1498,11 @@ proc ::TopoTools::make_angle_types_ascii_sortable {sel} {
     set anglelist [angleinfo getanglelist $sel]
     set newanglelist {}
 
+    # sort type names as inetgers, select last element (largest) and
+    # determine its field width:
     set num_digits [
-      expr int( ceil( log( [angleinfo numangletypes $sel] + 1.0 ) / log (10.0) ) ) ]
+      string length [ lindex [ lsort -integer [ topo angletypenames ] ] end ] ]
+
     vmdcon -info "Prepending zeros to angle types filling ${num_digits} digits."
     foreach angle $anglelist {
         lassign $angle type i1 i2 i3
@@ -1506,8 +1517,11 @@ proc ::TopoTools::make_dihedral_types_ascii_sortable {sel} {
   set dihedrallist [dihedralinfo getdihedrallist $sel]
   set newdihedrallist {}
 
+  # sort type names as inetgers, select last element (largest) and
+  # determine its field width:
   set num_digits [
-    expr int( ceil( log( [dihedralinfo numdihedraltypes $sel] + 1.0 ) / log (10.0) ) ) ]
+    string length [ lindex [ lsort -integer [ topo dihedraltypenames ] ] end ] ]
+
   vmdcon -info "Prepending zeros to angle types filling ${num_digits} digits."
   foreach dihedral $dihedrallist {
       lassign $dihedral type i1 i2 i3 i4
@@ -1523,7 +1537,8 @@ proc ::TopoTools::make_improper_types_ascii_sortable {sel} {
   set improperlist [improperinfo getimproperlist $sel]
   set newimproperlist {}
   set num_digits [
-    expr int( ceil( log( [improperinfo numimpropertypes $sel] + 1.0 ) / log (10.0) ) ) ]
+    string length [ lindex [ lsort -integer [ topo impropertypenames ] ] end ] ]
+
   vmdcon -info "Prepending zeros to improper types filling ${num_digits} digits."
   foreach improper $improperlist {
       lassign $improper type i1 i2 i3 i4
