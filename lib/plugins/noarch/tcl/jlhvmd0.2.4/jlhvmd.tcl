@@ -49,46 +49,20 @@
 # - number of digits to fill in with type names now determined by counting
 #   characters of largest type name after integer sorting instead of
 #   using the actual number of types.
+#
+# ## [0.2.4] 2019-08-11
+# ### Changed
+# - commands case-insenitive, allow i.e. "jlh use SDS" as well as "jlh use sds"
+# - removed obsolete pdb processing functionality and other code snippets
 
 namespace eval ::JlhVmd:: {
-    variable version 0.2.3
-    # utility command exports. the other commands are
-    # best used through the "topo" frontend command.
-    # namespace export system_data_file indenter_data_file indenter_pdb_file
-    # namespace export system_id indenter_id combined_id
-    # namespace export system substrate surfactant solvent counterion indenter
-    # namespace export nonsolvent
-
-    # namespace export use_CTAB use_SDS display_system_information
-    # namespace export init_system proc make_types_ascii_sortable position_system
-    # namespace export populate_selections position_bb
-    # namespace export read_indenter_pdb read_indenter_lmp
-    # namespace export init_indenter scale_indenter position_indenter clip_indenter
-    # namespace export merge identify_overlap move_nonsolvent_overlap remove_overlap
-    # namespace export set_visual show_nonsolvent show_solvent_only show_overlap
-    # namespace export batch_merge_lmp batch_merge_pdb
-    # namespace export batch_process_lmp batch_process_pdb
-    # namespace export batch_process_lmp_visual batch_process_pdb_visual
-    # namespace export write_out_indenter_immersed render_scene
+    variable version 0.2.4
 
     package require topotools
     package require pbctools
     package require yaml
 
-    # set system_data_file   377_SDS_on_AU_111_51x30x2_monolayer_with_counterion_production_mixed.lammps
-    # scaled, positioned and sliced indenter sample file
-    # set indenter_data_file 100Ang_stepped_scaled_positioned_sliced.lammps
-    # unscaled, unpositioned indenter sample file
-    # set indenter_pdb_file  100Ang_stepped_psfgen.pdb
-    # sample indenter files are 111 surface
-
-    # lattice constant for original indenter pdb
-    # confirmed for 100Ang_stepped.pdb and 100Ang_stepped.pdb :
-    # 2.651 ~ 2.652
-
-    # therefrom derived:
-    # scale indenter as to fit substrate lattice constant (AU 111 at standard cond.)
-    # set scale_factor 1.0943
+    # default values:
 
     # shift tip as to z-center apex 12 nm above substrate
     set desired_distance 120.0
@@ -256,36 +230,13 @@ proc ::JlhVmd::jlh { args } {
         return
     }
 
-    # we need a few special cases for reading coordinate/topology files.
-    # if {[string equal $cmd insert]} {
-    #    set style auto
-    #    if {[llength $newargs] < 3} {
-    #        vmdcon -err "Not enough arguments for 'jlh merge'"
-    #        usage
-    #        return
-    #    }
-    #    set interface_file [lindex $newargs 0]
-    #    set indenter_file  [lindex $newargs 1]
-    #    set out_prefix     [lindex $newargs 2]
-
-    #    if {[llength $newargs] > 3} {
-    #        set desired_distance [lindex $newargs 3]
-    #    }
-    #    if {[llength $newargs] > 4} {
-    #        set bb_file [lindex $newargs 4]
-    #    }
-    #
-    #    set retval [batch_process_lmp_visual $interface_name $indenter_file $out_prefix]
-    #    return $retval
-    # }
-
     # branch out to the various subcommands
-    switch -- $cmd {
+    switch -nocase -- $cmd {
         "set" {
             while {[llength $newargs] > 1} {
                 set key [lindex $newargs 0]
                 set newargs [lrange $newargs 1 end]
-                switch -- $key {
+                switch -nocase -- $key {
                     distance {
                         set desired_distance [lindex $newargs 0]
                         set newargs [lrange $newargs 1 end]
@@ -322,7 +273,7 @@ proc ::JlhVmd::jlh { args } {
         "read" {
             set key [lindex $newargs 0]
             set newargs [lrange $newargs 1 end]
-            switch -- $key {
+            switch -nocase -- $key {
                 bb {
                     set bb_file [lindex $newargs 0]
                     set newargs [lrange $newargs 1 end]
@@ -339,7 +290,7 @@ proc ::JlhVmd::jlh { args } {
         use {
             set key [lindex $newargs 0]
             set newargs [lrange $newargs 1 end]
-            switch -- $key {
+            switch -nocase -- $key {
                 ctab {
                     use_CTAB
                     set retval 0
@@ -689,21 +640,6 @@ proc ::JlhVmd::position_bb {} {
   pbc wrap -center origin -shiftcenter $bb_center -compound residue -all -verbose
 }
 
-proc ::JlhVmd::read_indenter_pdb { infile } {
-  variable system_id
-  variable system
-  variable scale_factor
-  variable indenter_id
-  variable indenter
-
-  set indenter_id [mol new $infile]
-  set indenter [atomselect $indenter_id all]
-  $indenter global
-  vmdcon -info [format "%-30.30s %12d" "#atoms in indenter:" [$indenter num]]
-
-  mol rename $indenter_id indenter
-}
-
 proc ::JlhVmd::read_indenter_lmp { infile } {
   variable system_id
   variable system
@@ -774,11 +710,6 @@ proc ::JlhVmd::position_indenter {} {
     [ expr [lindex $cell_center 1] - [lindex $in_com 1] ] \
     0. ]
 
-  # set cell_center_to_desired_distance \
-  #   [ expr $desired_distance - $sb_surface_to_cell_center]
-  #set z_shift [ list 0. 0. \
-  #  [expr 0.5 * $in_height + $cell_center_to_desired_distance ] ]
-
   # maximum substrate z coordinate minus minimum indenter z coordinate
   set initial_substrate_indenter_distance \
     [ expr [lindex $indenter_extents {0 2}] - [lindex $substrate_extents {1 2}] ]
@@ -844,14 +775,10 @@ proc ::JlhVmd::merge {} {
 
   variable overlap_distance
 
-  #set combined_id [::TopoTools::mergemols "$system_id $indenter_id"]
   set combined_id [::TopoTools::selections2mol "$system $indenter"]
   # transfer box measures
   molinfo $combined_id set {a b c alpha beta gamma} \
     [molinfo $system_id get {a b c alpha beta gamma}]
-
-  # indenter
-  #atomselect macro solute "index >= [$system num]"
 
   # assumes substrate annd identer of same material
   set indenter [atomselect $combined_id "index >= [$system num]"]
@@ -1119,8 +1046,6 @@ proc ::JlhVmd::move_nonsolvent_overlap {} {
   vmdcon -info [ format "Successfully moved %3d residues." $nmoved ]
 }
 
-# routine for possibly overlapping surfactant and counterion molecules needed!
-
 proc ::JlhVmd::remove_overlap {} {
   variable system_id
   variable combined_id
@@ -1364,52 +1289,6 @@ proc ::JlhVmd::batch_merge_lmp { system_infile indenter_infile } {
   return [ remove_overlap ]
 }
 
-# read system from lammps data file, indenter from raw pdb file
-proc ::JlhVmd::batch_merge_pdb { system_infile indenter_infile } {
-  vmdcon -info "-------------------------------------------------------------"
-  vmdcon -info "Read system from LAMMPS data file $system_infile..."
-  init_system $system_infile
-  vmdcon -info "-------------------------------------------------------------"
-  vmdcon -info "Objects in system read from $system_infile:"
-  display_system_information
-  vmdcon -info "-------------------------------------------------------------"
-  vmdcon -info "Make types ascii-sortable to preserver original order..."
-  make_types_ascii_sortable
-  vmdcon -info "-------------------------------------------------------------"
-  vmdcon -info "Objects in system after type renaming:"
-  display_system_information
-  vmdcon -info "-------------------------------------------------------------"
-  vmdcon -info "Position system..."
-  position_system
-  vmdcon -info "-------------------------------------------------------------"
-  vmdcon -info "Read indenter from PDB file $indenter_infile..."
-  read_indenter_pdb $indenter_infile
-  vmdcon -info "-------------------------------------------------------------"
-  vmdcon -info "Init indenter..."
-  init_indenter
-  vmdcon -info "-------------------------------------------------------------"
-  vmdcon -info "Scale indenter..."
-  scale_indenter
-  vmdcon -info "-------------------------------------------------------------"
-  vmdcon -info "Position indenter..."
-  position_indenter
-  vmdcon -info "-------------------------------------------------------------"
-  vmdcon -info "Clip indenter..."
-  clip_indenter
-  vmdcon -info "-------------------------------------------------------------"
-  vmdcon -info "Merge systems..."
-  merge
-  vmdcon -info "-------------------------------------------------------------"
-  vmdcon -info "Identify ovelap..."
-  identify_overlap
-  vmdcon -info "-------------------------------------------------------------"
-  vmdcon -info "Reposition non-solvent overlap..."
-  move_nonsolvent_overlap
-  vmdcon -info "-------------------------------------------------------------"
-  vmdcon -info "Remove overlap..."
-  return [ remove_overlap ]
-}
-
 proc ::JlhVmd::batch_process_lmp { system_infile indenter_infile outname } {
   set out_id [ batch_merge_lmp $system_infile $indenter_infile ]
   vmdcon -info "-------------------------------------------------------------"
@@ -1421,32 +1300,8 @@ proc ::JlhVmd::batch_process_lmp { system_infile indenter_infile outname } {
   return $out_id
 }
 
-proc ::JlhVmd::batch_process_pdb { system_infile indenter_infile outname } {
-  set out_id [ batch_merge_pdb $system_infile $indenter_infile ]
-  vmdcon -info "-------------------------------------------------------------"
-  vmdcon -info "Objects in output system:"
-  display_system_information $out_id
-  vmdcon -info "-------------------------------------------------------------"
-  vmdcon -info "Write output..."
-  write_out_indenter_immersed $outname
-  return $out_id
-}
-
 proc ::JlhVmd::batch_process_lmp_visual { system_infile indenter_infile outname } {
   set out_id [ batch_process_lmp $system_infile $indenter_infile $outname ]
-  vmdcon -info "-------------------------------------------------------------"
-  vmdcon -info "Set visualization properties..."
-  set_visual
-  vmdcon -info "-------------------------------------------------------------"
-  vmdcon -info "Show everything except solvent for output system..."
-  show_nonsolvent $out_id
-  vmdcon -info "-------------------------------------------------------------"
-  vmdcon -info "Render snapshot of output system..."
-  render_scene $outname
-}
-
-proc ::JlhVmd::batch_process_pdb_visual { system_infile indenter_infile outname } {
-  set out_id [ batch_process_pdb $system_infile $indenter_infile $outname ]
   vmdcon -info "-------------------------------------------------------------"
   vmdcon -info "Set visualization properties..."
   set_visual
