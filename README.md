@@ -69,11 +69,15 @@ During development,
 can be used to dynamically reload modified packages.
 
 
+Sample session:
 
+```tcl
+package require jlhvmd
 jlh set interfaceInfile initial_config.lammps
 jlh use sds
 jlh read bb bb.yaml
 jlh init
 jlh show surfactant
 jlh wrap atom
-history
+jlh join residue
+```
