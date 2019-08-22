@@ -64,7 +64,6 @@
 # set solvent [ atomselect top "(type == 8) or (type == 9)" ]
 # set oxygen [ atomselect top "type == 9" ]
 # pbc join res -ref $oxygen -sel $solvent -bondlist -verbose
-
 namespace eval ::JlhVmd:: {
     variable version 0.2.4
 
@@ -83,8 +82,7 @@ namespace eval ::JlhVmd:: {
     set padding_distance 5.0
 
     set bounding_box { {0. 0. 0.} {150. 150. 150.} }
-    compute_bb_center
-
+    set bb_center    { 75. 75. 75. }
     # io
     set interface_infile "interface.lammps"
     set indenter_infile  "indenter.lammps"
@@ -124,7 +122,10 @@ proc ::JlhVmd::usage {} {
     vmdcon -info "  use <key>                                     uses standard settings for surfactant <key>."
     vmdcon -info ""
     vmdcon -info "  info                                          display system information."
+    vmdcon -info "  init                                          initializes system without manipulation."
     vmdcon -info "  insert                                        inserts indenter into interfacial system."
+    vmdcon -info "  join <key>                                    (re-)joins residues split across boundries."
+    vmdcon -info "  wrap <key>                                    wrap system into one periodic image."
     vmdcon -info ""
     vmdcon -info "key - value pairs"
     vmdcon -info ""
@@ -136,6 +137,9 @@ proc ::JlhVmd::usage {} {
     vmdcon -info "          outputPrefix      output prefix prepended to all resulting files (str)"
     vmdcon -info "  use:    sds               "
     vmdcon -info "          ctab              "
+    vmdcon -info "  wrap:   atom              "
+    vmdcon -info "          residue           "
+    vmdcon -info "  join:   residue           "
     vmdcon -info ""
     vmdcon -info ""
     vmdcon -info "sample usage:"
@@ -234,7 +238,10 @@ proc ::JlhVmd::jlh { args } {
     }
 
     # check whether we have a valid command.
-    set validcmd { "set" "read" "use" "help" "info" "insert" }
+    set validcmd {
+      "set" "read" "show" "use"
+      "help" "info"
+      "init" "insert" "wrap" "join" }
     if {[lsearch -exact $validcmd $cmd] < 0} {
         vmdcon -err "Unknown sub-command '$cmd'"
         usage
@@ -318,6 +325,77 @@ proc ::JlhVmd::jlh { args } {
                     set retval 1
                 }
             }
+        }
+
+        "show" {
+            set key [lindex $newargs 0]
+            set newargs [lrange $newargs 1 end]
+            switch -nocase -- $key {
+                solvent {
+                    show_solvent_only
+                    set retval 0
+                }
+
+                surfactant {
+                    show_surfactant_only
+                    set retval 0
+                }
+
+                nonsolvent {
+                    show_nonsolvent
+                    set retval 0
+                }
+
+                default {
+                    vmdcon -err "Unknown parameter: $key"
+                    set retval 1
+                }
+            }
+        }
+
+        "wrap" {
+            set key [lindex $newargs 0]
+            set newargs [lrange $newargs 1 end]
+            switch -nocase -- $key {
+                residue {
+                    position_bb
+                    wrap_residue_into_bb
+                    set retval 0
+                }
+
+                atom {
+                    position_bb
+                    wrap_atom_into_bb
+                    set retval 0
+                }
+
+                default {
+                    vmdcon -err "Unknown parameter: $key"
+                    set retval 1
+                }
+            }
+        }
+
+        "join" {
+            set key [lindex $newargs 0]
+            set newargs [lrange $newargs 1 end]
+            switch -nocase -- $key {
+                residue {
+                    position_bb
+                    join_residue
+                    set retval 0
+                }
+
+                default {
+                    vmdcon -err "Unknown parameter: $key"
+                    set retval 1
+                }
+            }
+        }
+
+        "init" {
+            initialize $interface_infile
+            set retval 0
         }
 
         insert {
@@ -636,21 +714,26 @@ proc ::JlhVmd::populate_selections {} {
 # adjust position of bounding box
 proc ::JlhVmd::position_bb {} {
   variable bb_center
-  pbc box -center origin -shiftcenter $bb_center -on -verbose
+  pbc box -center origin -shiftcenter $bb_center -on
 }
 
 # wraps everything into one periodic image
-proc ::JlhVmd::wrap_atom_into_bb {}
+proc ::JlhVmd::wrap_atom_into_bb {} {
     variable bb_center
     pbc wrap -center origin -shiftcenter $bb_center -nocompound -all -verbose
 }
 
 # wraps into one periodic image, but keeps residues connected
-proc ::JlhVmd::wrap_residue_into_bb {}
+proc ::JlhVmd::wrap_residue_into_bb {} {
     variable bb_center
     pbc wrap -center origin -shiftcenter $bb_center -compound residue -all -verbose
 }
 
+# tries to join residues split across bb boundaries
+proc ::JlhVmd::join_residue {} {
+    variable bb_center
+    pbc join residue -bondlist -all -verbose
+}
 
 proc ::JlhVmd::read_indenter_lmp { infile } {
   variable system_id
@@ -1207,6 +1290,17 @@ proc ::JlhVmd::show_solvent_only { {mol_id 0} {rep_id 0} } {
   mol modrep $rep_id $mol_id
 }
 
+proc ::JlhVmd::show_surfactant_only { {mol_id 0} {rep_id 0} } {
+  variable surfactant_resname
+  mol selection resname $surfactant_resname
+
+  mol representation CPK
+  mol color element
+  mol material Opaque
+
+  mol modrep $rep_id $mol_id
+}
+
 proc ::JlhVmd::show_overlap { {mol_id 0} {rep_id 0} } {
   variable system
   variable overlap_distance
@@ -1252,9 +1346,8 @@ proc ::JlhVmd::render_scene { outname } {
   render TachyonInternal $outname.tga
 }
 
-# read both system and indenter from lammps data file, merges them and
-# removes overlap
-proc ::JlhVmd::batch_merge_lmp { system_infile indenter_infile } {
+# initialization without manipulation
+proc ::JlhVmd::initialize { system_infile } {
   vmdcon -info "-------------------------------------------------------------"
   vmdcon -info "Read system from LAMMPS data file $system_infile..."
   init_system $system_infile
@@ -1273,6 +1366,12 @@ proc ::JlhVmd::batch_merge_lmp { system_infile indenter_infile } {
   vmdcon -info "-------------------------------------------------------------"
   vmdcon -info "Position bounding box..."
   position_bb
+}
+
+# read both system and indenter from lammps data file, merges them and
+# removes overlap
+proc ::JlhVmd::batch_merge_lmp { system_infile indenter_infile } {
+  initialize $system_infile
   vmdcon -info "-------------------------------------------------------------"
   vmdcon -info "Wrap system into bounding box, conserving residues..."
   wrap_residue_into_bb
@@ -1338,7 +1437,7 @@ proc ::JlhVmd::read_bb_from_yaml { bb_file } {
     return $bounding_box
 }
 
-proc ::JlhVmd::compute_bb_center {} {
+proc ::JlhVmd::compute_bb_center { } {
     variable bounding_box
     variable bb_center
     variable bb_measure
@@ -1416,7 +1515,6 @@ proc ::TopoTools::make_dihedral_types_ascii_sortable {sel} {
 
 # adapted from ::TopoTools::retypeimpropers
 proc ::TopoTools::make_improper_types_ascii_sortable {sel} {
-
   set improperlist [improperinfo getimproperlist $sel]
   set newimproperlist {}
   set num_digits [

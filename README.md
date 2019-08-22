@@ -10,6 +10,13 @@ as submodules as well as some own routines (jlhvmd).
 *jlhvmd* requires tcllib (for yaml file support).
 Tested with release 1.19 obtained at 
 https://sourceforge.net/projects/tcllib/files/tcllib/1.19/tcllib-1.19.zip
+Unpack, create empty installation path of choice, i.e. 
+`${HOME}/opt/tcllib-1.19/lib/tcllib1.19` and run
+
+    ./configure --prefix ${HOME}/opt/tcllib-1.19/lib/tcllib1.19
+    make install
+
+from unpacked root.
 
 Follow 
 https://gist.github.com/tonigi/a9cfaf7642a7fbc13293#file-install_vmd_plugin-md
@@ -52,3 +59,21 @@ On Ubuntu, install `rlwrap` via `apt`. Afterwards, replace VMD's default *csh*
 launcher (i.e. `/usr/local/bin/vmd`, file starts with shebang `#!/bin/csh`）
 with the `bash` alternative, usually available within VMD's binary distribution
 as `bin/vmd.sh`. Make sure to adapt the paths in this bash launcher's header.
+
+During development, 
+
+    proc reloadPkg pkg {
+        eval [package ifneeded $pkg [package require $pkg]]
+    }
+
+can be used to dynamically reload modified packages.
+
+
+
+jlh set interfaceInfile initial_config.lammps
+jlh use sds
+jlh read bb bb.yaml
+jlh init
+jlh show surfactant
+jlh wrap atom
+history

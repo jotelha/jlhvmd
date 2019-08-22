@@ -3,4 +3,4 @@
 	url = git@github.com:akohlmey/topotools.git
 [submodule "lib/plugins/noarch/tcl/pbctools3.0"]
 	path = lib/plugins/noarch/tcl/pbctools3.0
-	url = git@github.com:frobnitzem/pbctools.git
+	url = git@github.com:jotelha/pbctools.git
