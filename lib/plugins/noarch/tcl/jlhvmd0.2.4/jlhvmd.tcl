@@ -54,6 +54,16 @@
 # ### Changed
 # - commands case-insenitive, allow i.e. "jlh use SDS" as well as "jlh use sds"
 # - removed obsolete pdb processing functionality and other code snippets
+#
+# ## [0.2.5] 2019-08-22
+# ### Changed
+# - added bb_center as global variable
+# - split bb positioning and wrapping
+
+# pbc wrap -center origin -shiftcenter $bb_center -nocompound -all -verbose
+# set solvent [ atomselect top "(type == 8) or (type == 9)" ]
+# set oxygen [ atomselect top "type == 9" ]
+# pbc join res -ref $oxygen -sel $solvent -bondlist -verbose
 
 namespace eval ::JlhVmd:: {
     variable version 0.2.4
@@ -73,6 +83,7 @@ namespace eval ::JlhVmd:: {
     set padding_distance 5.0
 
     set bounding_box { {0. 0. 0.} {150. 150. 150.} }
+    compute_bb_center
 
     # io
     set interface_infile "interface.lammps"
@@ -244,6 +255,7 @@ proc ::JlhVmd::jlh { args } {
 
                     bb {
                         set bounding_box [lindex $newargs 0]
+                        compute_bb_center
                         set newargs [lrange $newargs 1 end]
                     }
 
@@ -623,22 +635,22 @@ proc ::JlhVmd::populate_selections {} {
 
 # adjust position of bounding box
 proc ::JlhVmd::position_bb {} {
-  variable bounding_box
-
-  vmdcon -info [ format "         bounding box: %26s; %26s" \
-    [ format "%8.4f %8.4f %8.4f" {*}[ lindex $bounding_box 0 ] ] \
-    [ format "%8.4f %8.4f %8.4f" {*}[ lindex $bounding_box 1 ] ] ]
-
-  set bb_measures [ vecscale -1.0 [ vecsub {*}$bounding_box ] ]
-  set bb_center   [ vecscale 0.5  [ vecadd {*}$bounding_box ] ]
-  vmdcon -info [ format "bounding box measures: %26s" \
-    [ format "%8.4f %8.4f %8.4f" {*}$bb_measures ] ]
-  vmdcon -info [ format "  bounding box center: %26s" \
-    [ format "%8.4f %8.4f %8.4f" {*}$bb_center ] ]
-
-  pbc box -center origin -shiftcenter $bb_center -on
-  pbc wrap -center origin -shiftcenter $bb_center -compound residue -all -verbose
+  variable bb_center
+  pbc box -center origin -shiftcenter $bb_center -on -verbose
 }
+
+# wraps everything into one periodic image
+proc ::JlhVmd::wrap_atom_into_bb {}
+    variable bb_center
+    pbc wrap -center origin -shiftcenter $bb_center -nocompound -all -verbose
+}
+
+# wraps into one periodic image, but keeps residues connected
+proc ::JlhVmd::wrap_residue_into_bb {}
+    variable bb_center
+    pbc wrap -center origin -shiftcenter $bb_center -compound residue -all -verbose
+}
+
 
 proc ::JlhVmd::read_indenter_lmp { infile } {
   variable system_id
@@ -1165,6 +1177,8 @@ proc ::JlhVmd::show_nonsolvent { {mol_id 0} {rep_id 0} } {
   variable indenter
   variable counterion
   variable bounding_box
+  variable bb_center
+  variable bb_measure
 
   # make solid atoms appear as thick beads
   $substrate  set radius 5.0
@@ -1179,13 +1193,6 @@ proc ::JlhVmd::show_nonsolvent { {mol_id 0} {rep_id 0} } {
   # color by element name
 
   mol modrep $rep_id $mol_id
-
-  set bb_measures [ vecscale -1.0 [ vecsub {*}$bounding_box ] ]
-  set bb_center   [ vecscale 0.5  [ vecadd {*}$bounding_box ] ]
-  vmdcon -info [ format "bounding box measures: %26s" \
-    [ format "%8.4f %8.4f %8.4f" {*}$bb_measures ] ]
-  vmdcon -info [ format "  bounding box center: %26s" \
-    [ format "%8.4f %8.4f %8.4f" {*}$bb_center ] ]
 
   pbc box -on -center origin -shiftcenter $bb_center -molid $mol_id
 }
@@ -1267,6 +1274,9 @@ proc ::JlhVmd::batch_merge_lmp { system_infile indenter_infile } {
   vmdcon -info "Position bounding box..."
   position_bb
   vmdcon -info "-------------------------------------------------------------"
+  vmdcon -info "Wrap system into bounding box, conserving residues..."
+  wrap_residue_into_bb
+  vmdcon -info "-------------------------------------------------------------"
   vmdcon -info "Read indenter from LAMMPS data file $indenter_infile..."
   read_indenter_lmp $indenter_infile
   vmdcon -info "-------------------------------------------------------------"
@@ -1324,7 +1334,25 @@ proc ::JlhVmd::read_bb_from_yaml { bb_file } {
         $bb_file \
         [ format "%8.4f %8.4f %8.4f" {*}[ lindex $bounding_box 0 ] ] \
         [ format "%8.4f %8.4f %8.4f" {*}[ lindex $bounding_box 1 ] ] ]
+    compute_bb_center
     return $bounding_box
+}
+
+proc ::JlhVmd::compute_bb_center {} {
+    variable bounding_box
+    variable bb_center
+    variable bb_measure
+
+    vmdcon -info [ format "         bounding box: %26s; %26s" \
+        [ format "%8.4f %8.4f %8.4f" {*}[ lindex $bounding_box 0 ] ] \
+        [ format "%8.4f %8.4f %8.4f" {*}[ lindex $bounding_box 1 ] ] ]
+
+    set bb_measures [ vecscale -1.0 [ vecsub {*}$bounding_box ] ]
+    set bb_center   [ vecscale 0.5  [ vecadd {*}$bounding_box ] ]
+    vmdcon -info [ format "bounding box measures: %26s" \
+        [ format "%8.4f %8.4f %8.4f" {*}$bb_measures ] ]
+    vmdcon -info [ format "  bounding box center: %26s" \
+        [ format "%8.4f %8.4f %8.4f" {*}$bb_center ] ]
 }
 
 # namespace eval ::TopoTools::
