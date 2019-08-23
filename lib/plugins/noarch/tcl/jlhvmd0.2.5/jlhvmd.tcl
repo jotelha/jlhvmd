@@ -1505,7 +1505,7 @@ proc ::JlhVmd::render_solvent {} {
   render_scene $out_prefix
 }
 
-proc ::JlhVmd::render_ssurfactant {} {
+proc ::JlhVmd::render_surfactant {} {
   variable out_prefix
   vmdcon -info "-------------------------------------------------------------"
   vmdcon -info "Set visualization properties..."

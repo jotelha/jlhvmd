@@ -34,15 +34,21 @@ the environment variable `$TCLLIBPATH` before launching *vmd*, i.e.:
 ```tcl
 package require jlhvmd
 package require topotools
-jlh set interfaceInfile initial_config.lammps
+jlh set interfaceInfile initial_config.lammps outputPrefix default
 jlh use sds
 jlh read bb bb.yaml
 jlh init
-jlh show surfactant
 jlh wrap atom
 jlh join residue
-topo writelammpsdata outfile.lammps
+jlh render nonsolvent
+jlh write
 ```
+
+Apparently, the absolute position of the systems's unit cell is not conserved.
+The absolute atom positions, however, and unit cell measures are.
+
+What is more, processing via *topotools * drops the image flags,
+which can be a desired side-effect.
 
 ## PbcTools
 
