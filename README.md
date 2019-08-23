@@ -29,6 +29,21 @@ the environment variable `$TCLLIBPATH` before launching *vmd*, i.e.:
     export TCLLIBPATH="${HOME}/git/jlhvmd/lib/plugins/noarch/tcl ${TCLLIBPATH}"
     vmd
 
+### Sample session:
+
+```tcl
+package require jlhvmd
+package require topotools
+jlh set interfaceInfile initial_config.lammps
+jlh use sds
+jlh read bb bb.yaml
+jlh init
+jlh show surfactant
+jlh wrap atom
+jlh join residue
+topo writelammpsdata outfile.lammps
+```
+
 ## PbcTools
 
 PbcTools requires building `libpbc_core.so`. On Ubuntu 18.04 
@@ -68,16 +83,7 @@ During development,
 
 can be used to dynamically reload modified packages.
 
+## LICENSE
 
-Sample session:
-
-```tcl
-package require jlhvmd
-jlh set interfaceInfile initial_config.lammps
-jlh use sds
-jlh read bb bb.yaml
-jlh init
-jlh show surfactant
-jlh wrap atom
-jlh join residue
-```
+The LICENSE applies to content of this repository, not necessarily to the
+referenced submodules.
