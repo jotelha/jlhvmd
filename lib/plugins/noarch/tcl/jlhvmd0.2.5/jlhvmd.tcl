@@ -134,22 +134,29 @@ proc ::JlhVmd::usage {} {
     vmdcon -info "  init                                          initializes system without manipulation."
     vmdcon -info "  insert                                        inserts indenter into interfacial system."
     vmdcon -info "  join <key>                                    (re-)joins residues split across boundries."
+    vmdcon -info "  render <key>                                  render image of scene to .tga file."
     vmdcon -info "  wrap <key>                                    wrap system into one periodic image."
     vmdcon -info "  write                                         write .lammps, .psf and .pdb output files."
     vmdcon -info ""
     vmdcon -info "key - value pairs"
     vmdcon -info ""
+    vmdcon -info "  join:   residue           "
     vmdcon -info "  read:   bb                bounding box, expects yaml file with keys 'xlo', 'xhi', 'ylo', 'yhi', 'zlo', 'zhi'."
+    vmdcon -info "  render: nonsolvent        "
+    vmdcon -info "          solvent           "
+    vmdcon -info "          surfactant        "
     vmdcon -info "  set:    bb                bounding box ({ { float float float } { float float float } })"
     vmdcon -info "          distance          desired distance between surface and indenter (float)"
     vmdcon -info "          interfaceInfile   input LAMMPS data file of interface (str)"
     vmdcon -info "          indenterInfile    input LAMMPS data file of indenter (str)"
     vmdcon -info "          outputPrefix      output prefix prepended to all resulting files (str)"
+    vmdcon -info "  show:   nonsolvent        "
+    vmdcon -info "          solvent           "
+    vmdcon -info "          surfactant        "
     vmdcon -info "  use:    sds               "
     vmdcon -info "          ctab              "
     vmdcon -info "  wrap:   atom              "
     vmdcon -info "          residue           "
-    vmdcon -info "  join:   residue           "
     vmdcon -info ""
     vmdcon -info ""
     vmdcon -info "sample usage:"
@@ -167,7 +174,7 @@ proc ::JlhVmd::usage {} {
     vmdcon -info ""
     vmdcon -info ""
     vmdcon -info "Copyright (c) 2018,2019"
-    vmdcon -info "              by Johannes Hörmann <johannes.hoermann@imtek.uni-freiburg.de>"
+    vmdcon -info "              by Johannes Hoermann <johannes.hoermann@imtek.uni-freiburg.de>"
     vmdcon -info ""
     return
 }
@@ -249,9 +256,11 @@ proc ::JlhVmd::jlh { args } {
 
     # check whether we have a valid command.
     set validcmd {
-      "set" "read" "show" "use"
-      "help" "info"
-      "init" "insert" "wrap" "join" }
+      "set" "read" "use" "init"
+      "show" "render"
+      "wrap" "join"
+      "insert" "write"
+      "help" "info" }
     if {[lsearch -exact $validcmd $cmd] < 0} {
         vmdcon -err "Unknown sub-command '$cmd'"
         usage
@@ -307,6 +316,32 @@ proc ::JlhVmd::jlh { args } {
                     set bb_file [lindex $newargs 0]
                     set newargs [lrange $newargs 1 end]
                     set retval [read_bb_from_yaml $bb_file]
+                }
+
+                default {
+                    vmdcon -err "Unknown parameter: $key"
+                    set retval 1
+                }
+            }
+        }
+
+        "render" {
+            set key [lindex $newargs 0]
+            set newargs [lrange $newargs 1 end]
+            switch -nocase -- $key {
+                solvent {
+                    render_solvent
+                    set retval 0
+                }
+
+                surfactant {
+                    render_surfactant
+                    set retval 0
+                }
+
+                nonsolvent {
+                    render_nonsolvent
+                    set retval 0
                 }
 
                 default {
@@ -1296,7 +1331,9 @@ proc ::JlhVmd::show_nonsolvent { {mol_id 0} {rep_id 0} } {
 
   # make solid atoms appear as thick beads
   $substrate  set radius 5.0
-  $indenter   set radius 5.0
+  if { [ info exists indenter ] > 0 } {
+    $indenter   set radius 5.0
+  }
   $counterion set radius 3.0
 
   mol selection not resname $solvent_resname
@@ -1354,7 +1391,9 @@ proc ::JlhVmd::set_visual {} {
 
   # make solid atoms appear as thick beads
   $substrate  set radius 5.0
-  $indenter   set radius 5.0
+  if { [ info exists indenter ] > 0 } {
+    $indenter   set radius 5.0
+  }
   $counterion set radius 3.0
 
   display resetview
@@ -1438,6 +1477,45 @@ proc ::JlhVmd::batch_process_lmp { system_infile indenter_infile outname } {
   vmdcon -info "Write output..."
   write_out_indenter_immersed $outname
   return $out_id
+}
+
+proc ::JlhVmd::render_nonsolvent {} {
+  variable out_prefix
+  vmdcon -info "-------------------------------------------------------------"
+  vmdcon -info "Set visualization properties..."
+  set_visual
+  vmdcon -info "-------------------------------------------------------------"
+  vmdcon -info "Show everything except solvent..."
+  show_nonsolvent
+  vmdcon -info "-------------------------------------------------------------"
+  vmdcon -info "Render snapshot..."
+  render_scene $out_prefix
+}
+
+proc ::JlhVmd::render_solvent {} {
+  variable out_prefix
+  vmdcon -info "-------------------------------------------------------------"
+  vmdcon -info "Set visualization properties..."
+  set_visual
+  vmdcon -info "-------------------------------------------------------------"
+  vmdcon -info "Show only solvent..."
+  show_solvent_only
+  vmdcon -info "-------------------------------------------------------------"
+  vmdcon -info "Render snapshot..."
+  render_scene $out_prefix
+}
+
+proc ::JlhVmd::render_ssurfactant {} {
+  variable out_prefix
+  vmdcon -info "-------------------------------------------------------------"
+  vmdcon -info "Set visualization properties..."
+  set_visual
+  vmdcon -info "-------------------------------------------------------------"
+  vmdcon -info "Show only surfactant..."
+  show_surfactant_only
+  vmdcon -info "-------------------------------------------------------------"
+  vmdcon -info "Render snapshot..."
+  render_scene $out_prefix
 }
 
 proc ::JlhVmd::batch_process_lmp_visual { system_infile indenter_infile outname } {
