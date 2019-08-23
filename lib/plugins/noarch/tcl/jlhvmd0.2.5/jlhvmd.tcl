@@ -3,17 +3,29 @@
 # topology related properties in VMD with the help of TopoTools and PbcTools
 #
 # Copyright (c) 2018,2019
-#               by Johannes Hörmann <johannes.hoermann@imtek.uni-freiburg.de>
+#               by Johannes Hoermann <johannes.hoermann@imtek.uni-freiburg.de>
 #
 # $Id: jlhvmd.tcl,v 0.2 2019/05/16 $
 #
-# Sample usage:
+# Sample usage for indenter insertion:
 #
 #   vmd> package requie jlhvmd
 #   vmd> jlh set distance 30.0 indenterInfile indenter.lammps interfaceInfile interface.lammps outputPrefix system
 #   vmd> jlh use sds
 #   vmd> jlh read bb bb.yaml
 #   vmd> jlh insert
+#
+# Sample usage for wrapping periodic images and joining split residues:
+#
+#   vmd> package require jlhvmd
+#   vmd> jlh set interfaceInfile initial_config.lammps outPrefix default
+#   vmd> jlh use sds
+#   vmd> jlh read bb bb.yaml
+#   vmd> jlh init
+#   vmd> jlh show surfactant
+#   vmd> jlh wrap atom
+#   vmd> jlh join residue
+#   vmd> jlh write
 #
 # will use parameters for SDS, merge an interfacial system's 'interface.lammps'
 # data file with an indenter's 'indenter.pdb', remove any overlap and write
@@ -123,6 +135,7 @@ proc ::JlhVmd::usage {} {
     vmdcon -info "  insert                                        inserts indenter into interfacial system."
     vmdcon -info "  join <key>                                    (re-)joins residues split across boundries."
     vmdcon -info "  wrap <key>                                    wrap system into one periodic image."
+    vmdcon -info "  write                                         write .lammps, .psf and .pdb output files."
     vmdcon -info ""
     vmdcon -info "key - value pairs"
     vmdcon -info ""
@@ -397,6 +410,11 @@ proc ::JlhVmd::jlh { args } {
 
         insert {
             batch_process_lmp_visual $interface_infile $indenter_infile $out_prefix
+            set retval 0
+        }
+
+        "write" {
+            write_top_all $out_prefix
             set retval 0
         }
 
@@ -1225,6 +1243,22 @@ proc ::JlhVmd::write_out_indenter_immersed { outname } {
     files contain comments that match the symbolic type names with the \
     corresponding numeric definitions, which helps in writing those input \
      segment. In many cases, this can be easily scripted, too."
+  $sel writepsf $outname.psf
+  vmdcon -info "Wrote $outname.psf"
+  $sel writepdb $outname.pdb
+  vmdcon -info "Wrote $outname.pdb"
+}
+
+proc ::JlhVmd::write_top_all { outname } {
+  set sel [atomselect top all]
+  topo writelammpsdata $outname.lammps full
+  vmdcon -info "Wrote $outname.lammps"
+  vmdcon -warn "The data files created by TopoTools don't contain any \
+    potential parameters or pair/bond/angle/dihedral style definitions. \
+    Those have to be generated in addition, however, the generated data \
+    files contain comments that match the symbolic type names with the \
+    corresponding numeric definitions, which helps in writing those input \
+    segment. In many cases, this can be easily scripted, too."
   $sel writepsf $outname.psf
   vmdcon -info "Wrote $outname.psf"
   $sel writepdb $outname.pdb
