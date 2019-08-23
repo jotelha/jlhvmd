@@ -62,11 +62,15 @@ with
 
     g++ -shared -fPIC -o libpbc_core.so ${TCL_INCLUDE_SPEC} pbc_core.c ${TCL_LIB_SPEC} --verbose
 
-without providing the VMD-specific includes as described on 
+without providing the VMD-specific includes, other than described on 
 https://www.ks.uiuc.edu/Research/vmd/plugins/doxygen/compiling.html
 
 The resulting `libpbc_core.so` is to be placed at
 `lib/plugins/noarch/tcl/pbctools3.0`.
+
+On CentOS 7.6, the above mentioned config file might be found at
+
+  /usr/lib64/tcl8.5/tclConfig.sh
 
 ## Notes
 
@@ -82,6 +86,23 @@ During development,
     }
 
 can be used to dynamically reload modified packages.
+
+When updating the package version number, it has to be done a three places
+
+* at the subtree name, i.e. from 
+    
+    lib/plugins/noarch/tcl/jlhvmd0.2.4
+
+  to
+  
+    lib/plugins/noarch/tcl/jlhvmd0.2.6
+
+* within `pkgIndex.tcl`
+* within `jlhvmd.tcl` at the namespace evaluation's head
+
+    namespace eval ::JlhVmd:: {
+        variable version 0.2.5
+        ...
 
 ## LICENSE
 

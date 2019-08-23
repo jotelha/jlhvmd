@@ -59,13 +59,10 @@
 # ### Changed
 # - added bb_center as global variable
 # - split bb positioning and wrapping
+# - added several wrapping and joining commands
 
-# pbc wrap -center origin -shiftcenter $bb_center -nocompound -all -verbose
-# set solvent [ atomselect top "(type == 8) or (type == 9)" ]
-# set oxygen [ atomselect top "type == 9" ]
-# pbc join res -ref $oxygen -sel $solvent -bondlist -verbose
 namespace eval ::JlhVmd:: {
-    variable version 0.2.4
+    variable version 0.2.5
 
     package require topotools
     package require pbctools
