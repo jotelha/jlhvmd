@@ -6,6 +6,10 @@ Combines current development versions of
 * PbcTools  (git@github.com:frobnitzem/pbctools.git)
 
 as submodules as well as some own routines (jlhvmd).
+After cloning this repository, clone sub modules as well via
+
+    git submodule init
+    git submodule update
 
 *jlhvmd* requires tcllib (for yaml file support).
 Tested with release 1.19 obtained at
@@ -77,6 +81,13 @@ The resulting `libpbc_core.so` is to be placed at
 On CentOS 7.6, the above mentioned config file might be found at
 
   /usr/lib64/tcl8.5/tclConfig.sh
+
+and if Tcl is available via a module system, i.e. LMOD arranged with EasyBuild,
+then the according file might be found at
+
+  $EBROOTTCL/lib/tclConfig.sh
+
+after loading the according Tcl module.
 
 ## Notes
 
