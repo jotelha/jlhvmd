@@ -128,6 +128,7 @@ proc ::JlhVmd::usage {} {
     vmdcon -info ""
     vmdcon -info "  read <key> <file> \[ <key> <file> \[ ... \] \]    reads parameter <key> from <file>."
     vmdcon -info "  set <key> <value> \[ <key> <value> \[ ... \] \]   sets parameter <key> to <value>."
+    vmdcon -info "  lmp2pdb <file> <file>                         converts lammps data file to pdb file."
     vmdcon -info "  use <key>                                     uses standard settings for surfactant <key>."
     vmdcon -info ""
     vmdcon -info "  info                                          display system information."
@@ -256,6 +257,7 @@ proc ::JlhVmd::jlh { args } {
 
     # check whether we have a valid command.
     set validcmd {
+      "lmp2pdb"
       "set" "read" "use" "init"
       "show" "render"
       "wrap" "join"
@@ -269,6 +271,14 @@ proc ::JlhVmd::jlh { args } {
 
     # branch out to the various subcommands
     switch -nocase -- $cmd {
+        "lmp2pdb" {
+            set filein  [lindex $newargs 0]
+            set fileout [lindex $newargs 1]
+            topo readlammpsdata $filein
+            set sel [atomselect top all]
+            $sel writepdb $fileout
+            set retval 0
+        }
         "set" {
             while {[llength $newargs] > 1} {
                 set key [lindex $newargs 0]
