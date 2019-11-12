@@ -9,7 +9,7 @@
 #
 # Sample usage for indenter insertion:
 #
-#   vmd> package requie jlhvmd
+#   vmd> package require jlhvmd
 #   vmd> jlh set distance 30.0 indenterInfile indenter.lammps interfaceInfile interface.lammps outputPrefix system
 #   vmd> jlh use sds
 #   vmd> jlh read bb bb.yaml
